@@ -1,0 +1,110 @@
+services:
+  # ---------- Bases de datos (una instancia por microservicio) ----------
+  mongo-usuarios:
+    image: mongo:7
+    container_name: mongo-usuarios
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USUARIOS_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_USUARIOS_PASS}
+      MONGO_INITDB_DATABASE: usuarios_db
+    volumes:
+      - mongo_usuarios_data:/data/db
+    networks:
+      - pedidos-net
+
+  mongo-productos:
+    image: mongo:7
+    container_name: mongo-productos
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_PRODUCTOS_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PRODUCTOS_PASS}
+      MONGO_INITDB_DATABASE: productos_db
+    volumes:
+      - mongo_productos_data:/data/db
+    networks:
+      - pedidos-net
+
+  mongo-pedidos:
+    image: mongo:7
+    container_name: mongo-pedidos
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_PEDIDOS_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PEDIDOS_PASS}
+      MONGO_INITDB_DATABASE: pedidos_db
+    volumes:
+      - mongo_pedidos_data:/data/db
+    networks:
+      - pedidos-net
+
+  # ---------- Microservicios ----------
+  servicio-usuarios:
+    build: ./servicio-usuarios
+    container_name: servicio-usuarios
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      MONGO_URI: mongodb://${MONGO_USUARIOS_USER}:${MONGO_USUARIOS_PASS}@mongo-usuarios:27017/usuarios_db?authSource=admin
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      - mongo-usuarios
+    networks:
+      - pedidos-net
+
+  servicio-productos:
+    build: ./servicio-productos
+    container_name: servicio-productos
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      MONGO_URI: mongodb://${MONGO_PRODUCTOS_USER}:${MONGO_PRODUCTOS_PASS}@mongo-productos:27017/productos_db?authSource=admin
+    depends_on:
+      - mongo-productos
+    networks:
+      - pedidos-net
+
+  servicio-pedidos:
+    build: ./servicio-pedidos
+    container_name: servicio-pedidos
+    restart: unless-stopped
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb://${MONGO_PEDIDOS_USER}:${MONGO_PEDIDOS_PASS}@mongo-pedidos:27017/pedidos_db?authSource=admin
+      USUARIOS_SERVICE_URL: http://servicio-usuarios:3001
+      PRODUCTOS_SERVICE_URL: http://servicio-productos:3002
+    depends_on:
+      - mongo-pedidos
+      - servicio-usuarios
+      - servicio-productos
+    networks:
+      - pedidos-net
+
+  # ---------- API Gateway (unico punto de entrada externo) ----------
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      USUARIOS_SERVICE_URL: http://servicio-usuarios:3001
+      PRODUCTOS_SERVICE_URL: http://servicio-productos:3002
+      PEDIDOS_SERVICE_URL: http://servicio-pedidos:3003
+    depends_on:
+      - servicio-usuarios
+      - servicio-productos
+      - servicio-pedidos
+    networks:
+      - pedidos-net
+
+networks:
+  pedidos-net:
+    driver: bridge
+
+volumes:
+  mongo_usuarios_data:
+  mongo_productos_data:
+  mongo_pedidos_data:
