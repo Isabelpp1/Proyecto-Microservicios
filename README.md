@@ -1,9 +1,13 @@
-# Sistema de Gestión de Pedidos — Tienda en Línea
+# Sistema de pedidos para una tienda en línea
 
-Proyecto de curso de Arquitectura de Componentes y Microservicios.
-Basado en el RFC-001 (stack: **Node.js / Express + MongoDB**, ver `docs/RFC-001.md` o el PDF original del equipo).
+Proyecto del curso de Arquitectura de Componentes y Microservicios. La aplicación está dividida
+en tres servicios: usuarios, productos y pedidos. Un API Gateway recibe las solicitudes y las
+envía al servicio correspondiente.
 
-Equipo: Carlos Daniel Martinez, Douglas Pérez, Isabel Paiz.
+El proyecto usa Node.js, Express, MongoDB y Docker Compose. La decisión del stack está documentada
+en [`docs/RFC-001.md`](docs/RFC-001.md).
+
+Equipo: Carlos Daniel Martinez, Douglas Pérez e Isabel Paiz.
 
 ## Arquitectura
 
@@ -44,16 +48,29 @@ pedidos-tienda-online/
 └── README.md
 ```
 
-## Cómo correr el proyecto (local)
+## Cómo correrlo
 
-Requisitos: Docker y Docker Compose instalados.
+Se necesita tener Docker Desktop instalado y abierto. No es necesario instalar Node.js para
+levantar la versión de Compose, porque cada servicio instala sus dependencias dentro de su
+contenedor.
 
 ```bash
 git clone <repo>
 cd pedidos-tienda-online
-cp .env.example .env      # completar JWT_SECRET y credenciales de Mongo si se desea
+cp .env.example .env
 docker compose up --build
 ```
+
+En PowerShell, el segundo comando se puede escribir así:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up --build
+```
+
+La primera vez puede tardar un poco mientras Docker descarga MongoDB y construye las imágenes.
+Para detener los contenedores se puede presionar `Ctrl+C`. Si se quieren dejar ejecutándose en
+segundo plano, usar `docker compose up --build -d`.
 
 Verificar que los 3 servicios y el gateway están arriba:
 
@@ -74,7 +91,7 @@ curl -X POST http://localhost:3000/api/usuarios/register \
   -H "Content-Type: application/json" \
   -d '{"nombre":"Ana Lopez","email":"ana@example.com","password":"secreta123"}'
 
-# 2. Login (para checkpoints futuros, hoy el token aun no se exige en Pedidos)
+# 2. Iniciar sesión
 curl -X POST http://localhost:3000/api/usuarios/login \
   -H "Content-Type: application/json" \
   -d '{"email":"ana@example.com","password":"secreta123"}'
@@ -93,12 +110,16 @@ curl -X POST http://localhost:3000/api/pedidos \
 curl http://localhost:3000/api/pedidos/<id_pedido>
 ```
 
+En Windows se puede usar `curl.exe` en lugar de `curl` si PowerShell interpreta `curl` como un
+alias de `Invoke-WebRequest`. Los valores entre `< >` se deben reemplazar con los IDs que devuelve
+la respuesta anterior.
+
 Al crear el pedido, `servicio-pedidos` llama a `servicio-usuarios` (para validar que el cliente
 existe) y a `servicio-productos` (para verificar y descontar stock) antes de confirmar el pedido.
 
-## Roadmap del proyecto (3 fases)
+## Estado del proyecto
 
-### ✅ Checkpoint 1 — Microservicios + Docker (este entregable)
+### Checkpoint 1 — Microservicios y Docker
 - [x] Tres microservicios independientes (Usuarios, Productos, Pedidos), cada uno con su propia
       base de datos MongoDB.
 - [x] Cada servicio expone `/healthz` y `/readyz`.
@@ -110,7 +131,7 @@ existe) y a `servicio-productos` (para verificar y descontar stock) antes de con
 - [x] Comunicación entre servicios por nombre lógico de contenedor (`http://servicio-usuarios:3001`),
       nunca por IP fija.
 
-### 🔜 Checkpoint 2 — Seguridad, resiliencia y observabilidad
+### Checkpoint 2 — Seguridad, resiliencia y observabilidad
 Planeado para la siguiente entrega:
 - **JWT en `servicio-pedidos`**: exigir un token válido (emitido por `servicio-usuarios`) en
   `POST /pedidos`, extrayendo `usuarioId` del token en vez de recibirlo en el body.
@@ -125,7 +146,7 @@ Planeado para la siguiente entrega:
   dado el alcance del proyecto, se mantiene el descubrimiento por nombre de contenedor de Docker
   Compose (decisión ya justificada en el RFC-001).
 
-### 🔜 Entrega final — Documentación y demo
+### Entrega final — Documentación y demo
 - README final con arquitectura, instrucciones de instalación/uso y sección de seguridad
   (incluye rotación de credenciales).
 - Video demo (5–8 min) mostrando: `docker compose up`, registro/login, creación de pedido válido,
