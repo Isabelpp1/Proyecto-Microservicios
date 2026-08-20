@@ -15,6 +15,26 @@ app.get('/healthz', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Los endpoints de salud viven en la raiz de cada microservicio. Se declaran
+// antes de los proxies generales para evitar que, por ejemplo, "healthz" sea
+// interpretado como un ID en /usuarios/:id.
+function proxyHealthEndpoints(publicPath, target) {
+  for (const endpoint of ['healthz', 'readyz']) {
+    app.use(
+      `${publicPath}/${endpoint}`,
+      createProxyMiddleware({
+        target,
+        changeOrigin: true,
+        pathRewrite: { [`^${publicPath}/${endpoint}`]: `/${endpoint}` }
+      })
+    );
+  }
+}
+
+proxyHealthEndpoints('/api/usuarios', process.env.USUARIOS_SERVICE_URL);
+proxyHealthEndpoints('/api/productos', process.env.PRODUCTOS_SERVICE_URL);
+proxyHealthEndpoints('/api/pedidos', process.env.PEDIDOS_SERVICE_URL);
+
 app.use(
   '/api/usuarios',
   createProxyMiddleware({
