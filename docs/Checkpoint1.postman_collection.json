@@ -1,0 +1,294 @@
+{
+  "info": {
+    "_postman_id": "d8d57c20-b2d1-4e4e-a742-2cffc60b8b41",
+    "name": "Proyecto Microservicios - Demo Checkpoint 1",
+    "description": "Coleccion para demostrar el flujo completo del Checkpoint 1 a traves del API Gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1 - Salud y disponibilidad",
+      "item": [
+        {
+          "name": "Gateway - healthz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/healthz"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Gateway disponible', () => pm.response.to.have.status(200));",
+                "pm.test('Estado OK', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Usuarios - healthz",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/usuarios/healthz" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Usuarios disponible', () => pm.response.to.have.status(200));"] }
+          }]
+        },
+        {
+          "name": "Productos - healthz",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/productos/healthz" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Productos disponible', () => pm.response.to.have.status(200));"] }
+          }]
+        },
+        {
+          "name": "Pedidos - healthz",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/pedidos/healthz" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Pedidos disponible', () => pm.response.to.have.status(200));"] }
+          }]
+        },
+        {
+          "name": "Usuarios - readyz",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/usuarios/readyz" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Usuarios y su BD estan listos', () => pm.response.to.have.status(200));"] }
+          }]
+        },
+        {
+          "name": "Productos - readyz",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/productos/readyz" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Productos y su BD estan listos', () => pm.response.to.have.status(200));"] }
+          }]
+        },
+        {
+          "name": "Pedidos - readyz",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/pedidos/readyz" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Pedidos y su BD estan listos', () => pm.response.to.have.status(200));"] }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "2 - Flujo principal",
+      "item": [
+        {
+          "name": "1. Registrar usuario",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const email = `demo.checkpoint1.${Date.now()}@example.com`;",
+                  "pm.collectionVariables.set('demoEmail', email);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Usuario creado', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.expect(data.id).to.exist;",
+                  "pm.collectionVariables.set('usuarioId', data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Usuario Demo\",\n  \"email\": \"{{demoEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/usuarios/register"
+          }
+        },
+        {
+          "name": "2. Iniciar sesion",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Login correcto', () => pm.response.to.have.status(200));",
+                "const data = pm.response.json();",
+                "pm.expect(data.token).to.exist;",
+                "pm.collectionVariables.set('jwtToken', data.token);"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"password\": \"{{demoPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/usuarios/login"
+          }
+        },
+        {
+          "name": "3. Consultar perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Perfil encontrado', () => pm.response.to.have.status(200));",
+                "pm.test('No expone el passwordHash', () => pm.expect(pm.response.json()).not.to.have.property('passwordHash'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "4. Crear producto",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Producto creado', () => pm.response.to.have.status(201));",
+                "const data = pm.response.json();",
+                "pm.collectionVariables.set('productoId', data._id);"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Mouse inalambrico\",\n  \"descripcion\": \"Producto utilizado en la demo\",\n  \"precio\": 25.5,\n  \"stock\": 10\n}"
+            },
+            "url": "{{baseUrl}}/api/productos"
+          }
+        },
+        {
+          "name": "5. Listar productos",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/productos" },
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["pm.test('Catalogo disponible', () => pm.response.to.have.status(200));"] }
+          }]
+        },
+        {
+          "name": "6. Crear pedido",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Pedido creado', () => pm.response.to.have.status(201));",
+                "const data = pm.response.json();",
+                "pm.expect(data.estado).to.eql('confirmado');",
+                "pm.expect(data.total).to.eql(51);",
+                "pm.collectionVariables.set('pedidoId', data._id);"
+              ]
+            }
+          }],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwtToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{usuarioId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productoId}}\",\n      \"cantidad\": 2\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/pedidos"
+          }
+        },
+        {
+          "name": "7. Consultar pedido",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/pedidos/{{pedidoId}}" },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Pedido encontrado', () => pm.response.to.have.status(200));",
+                "const data = pm.response.json();",
+                "pm.expect(data.estado).to.eql('confirmado');",
+                "pm.expect(data.total).to.eql(51);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "8. Verificar stock descontado",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/productos/{{productoId}}" },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Producto encontrado', () => pm.response.to.have.status(200));",
+                "pm.test('Stock reducido de 10 a 8', () => pm.expect(pm.response.json().stock).to.eql(8));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "3 - Caso de error",
+      "item": [
+        {
+          "name": "Stock insuficiente",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{jwtToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{usuarioId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productoId}}\",\n      \"cantidad\": 999\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/pedidos"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Responde conflicto por stock', () => pm.response.to.have.status(409));",
+                "pm.test('Explica el error', () => pm.expect(pm.response.json().error).to.include('Stock insuficiente'));"
+              ]
+            }
+          }]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "demoEmail", "value": "", "type": "string" },
+    { "key": "demoPassword", "value": "secreta123", "type": "string" },
+    { "key": "usuarioId", "value": "", "type": "string" },
+    { "key": "productoId", "value": "", "type": "string" },
+    { "key": "pedidoId", "value": "", "type": "string" },
+    { "key": "jwtToken", "value": "", "type": "string" }
+  ]
+}
