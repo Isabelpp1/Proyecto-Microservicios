@@ -2,11 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const { correlationMiddleware } = require('./observability');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+app.use(correlationMiddleware('api-gateway'));
+
+function proxyOptions(target, pathRewrite) {
+  return {
+    target,
+    changeOrigin: true,
+    pathRewrite,
+    onProxyReq: (proxyReq, req) => {
+      proxyReq.setHeader('x-correlation-id', req.correlationId);
+    }
+  };
+}
 
 // Punto de entrada unico: el cliente solo conoce al Gateway, nunca a los
 // servicios internos directamente. El Gateway enruta segun el path.
@@ -22,11 +35,10 @@ function proxyHealthEndpoints(publicPath, target) {
   for (const endpoint of ['healthz', 'readyz']) {
     app.use(
       `${publicPath}/${endpoint}`,
-      createProxyMiddleware({
+      createProxyMiddleware(proxyOptions(
         target,
-        changeOrigin: true,
-        pathRewrite: { [`^${publicPath}/${endpoint}`]: `/${endpoint}` }
-      })
+        { [`^${publicPath}/${endpoint}`]: `/${endpoint}` }
+      ))
     );
   }
 }
@@ -37,29 +49,26 @@ proxyHealthEndpoints('/api/pedidos', process.env.PEDIDOS_SERVICE_URL);
 
 app.use(
   '/api/usuarios',
-  createProxyMiddleware({
-    target: process.env.USUARIOS_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: { '^/api/usuarios': '/usuarios' }
-  })
+  createProxyMiddleware(proxyOptions(
+    process.env.USUARIOS_SERVICE_URL,
+    { '^/api/usuarios': '/usuarios' }
+  ))
 );
 
 app.use(
   '/api/productos',
-  createProxyMiddleware({
-    target: process.env.PRODUCTOS_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: { '^/api/productos': '/productos' }
-  })
+  createProxyMiddleware(proxyOptions(
+    process.env.PRODUCTOS_SERVICE_URL,
+    { '^/api/productos': '/productos' }
+  ))
 );
 
 app.use(
   '/api/pedidos',
-  createProxyMiddleware({
-    target: process.env.PEDIDOS_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: { '^/api/pedidos': '/pedidos' }
-  })
+  createProxyMiddleware(proxyOptions(
+    process.env.PEDIDOS_SERVICE_URL,
+    { '^/api/pedidos': '/pedidos' }
+  ))
 );
 
 app.use((req, res) => {

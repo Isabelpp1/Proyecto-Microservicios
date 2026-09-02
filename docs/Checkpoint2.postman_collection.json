@@ -1,0 +1,86 @@
+{
+  "info": {
+    "name": "Pedidos tienda online - Checkpoint 2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "ClaveSegura123" },
+    { "key": "token", "value": "" },
+    { "key": "productoId", "value": "" },
+    { "key": "correlationId", "value": "cp2-demo-001" }
+  ],
+  "item": [
+    {
+      "name": "Registrar usuario",
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('email', 'demo-' + Date.now() + '@example.com');"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Usuario Demo\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" },
+        "url": "{{baseUrl}}/api/usuarios/register"
+      }
+    },
+    {
+      "name": "Login (guarda JWT)",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Login exitoso', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('token', pm.response.json().token);"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" },
+        "url": "{{baseUrl}}/api/usuarios/login"
+      }
+    },
+    {
+      "name": "Crear producto (guarda ID)",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Producto creado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('productoId', pm.response.json()._id);"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Producto demo\",\n  \"precio\": 25,\n  \"stock\": 5\n}" },
+        "url": "{{baseUrl}}/api/productos"
+      }
+    },
+    {
+      "name": "Pedido sin JWT (401)",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('JWT requerido', () => pm.response.to.have.status(401));"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"items\": [{ \"productoId\": \"{{productoId}}\", \"cantidad\": 1 }]\n}" },
+        "url": "{{baseUrl}}/api/pedidos"
+      }
+    },
+    {
+      "name": "Pedido con JWT inválido (401)",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('JWT inválido', () => pm.response.to.have.status(401));"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer token-invalido" }],
+        "body": { "mode": "raw", "raw": "{\n  \"items\": [{ \"productoId\": \"{{productoId}}\", \"cantidad\": 1 }]\n}" },
+        "url": "{{baseUrl}}/api/pedidos"
+      }
+    },
+    {
+      "name": "Pedido válido con correlación (201)",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Pedido confirmado', () => pm.response.to.have.status(201));"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "x-correlation-id", "value": "{{correlationId}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"items\": [{ \"productoId\": \"{{productoId}}\", \"cantidad\": 1 }]\n}" },
+        "url": "{{baseUrl}}/api/pedidos"
+      }
+    },
+    {
+      "name": "Pedido con stock insuficiente (409)",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Stock insuficiente', () => pm.response.to.have.status(409));"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+        "body": { "mode": "raw", "raw": "{\n  \"items\": [{ \"productoId\": \"{{productoId}}\", \"cantidad\": 999 }]\n}" },
+        "url": "{{baseUrl}}/api/pedidos"
+      }
+    }
+  ]
+}

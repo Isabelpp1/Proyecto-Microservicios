@@ -1,5 +1,6 @@
 const express = require('express');
 const Producto = require('../models/Producto');
+const { logEvent } = require('../observability');
 
 const router = express.Router();
 
@@ -22,6 +23,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'nombre y precio son requeridos' });
     }
     const producto = await Producto.create({ nombre, descripcion, precio, stock: stock || 0 });
+    logEvent('servicio-productos', 'info', 'product_created', {
+      correlationId: req.correlationId,
+      product_id: producto._id.toString()
+    });
     return res.status(201).json(producto);
   } catch (err) {
     console.error(err);
@@ -62,6 +67,12 @@ router.patch('/:id/stock', async (req, res) => {
 
     producto.stock -= cantidad;
     await producto.save();
+    logEvent('servicio-productos', 'info', 'stock_decremented', {
+      correlationId: req.correlationId,
+      product_id: producto._id.toString(),
+      quantity: cantidad,
+      stock_remaining: producto.stock
+    });
 
     return res.json({ id: producto._id, stockRestante: producto.stock });
   } catch (err) {

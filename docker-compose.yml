@@ -1,4 +1,15 @@
 services:
+  # ---------- Registro y descubrimiento de servicios ----------
+  consul:
+    image: hashicorp/consul:1.17
+    container_name: consul
+    restart: unless-stopped
+    command: agent -dev -client=0.0.0.0
+    ports:
+      - "8500:8500"
+    networks:
+      - pedidos-net
+
   # ---------- Bases de datos (una instancia por microservicio) ----------
   mongo-usuarios:
     image: mongo:7
@@ -48,8 +59,10 @@ services:
       PORT: 3001
       MONGO_URI: mongodb://${MONGO_USUARIOS_USER}:${MONGO_USUARIOS_PASS}@mongo-usuarios:27017/usuarios_db?authSource=admin
       JWT_SECRET: ${JWT_SECRET}
+      CONSUL_URL: ${CONSUL_URL}
     depends_on:
       - mongo-usuarios
+      - consul
     networks:
       - pedidos-net
 
@@ -60,8 +73,10 @@ services:
     environment:
       PORT: 3002
       MONGO_URI: mongodb://${MONGO_PRODUCTOS_USER}:${MONGO_PRODUCTOS_PASS}@mongo-productos:27017/productos_db?authSource=admin
+      CONSUL_URL: ${CONSUL_URL}
     depends_on:
       - mongo-productos
+      - consul
     networks:
       - pedidos-net
 
@@ -72,12 +87,13 @@ services:
     environment:
       PORT: 3003
       MONGO_URI: mongodb://${MONGO_PEDIDOS_USER}:${MONGO_PEDIDOS_PASS}@mongo-pedidos:27017/pedidos_db?authSource=admin
-      USUARIOS_SERVICE_URL: http://servicio-usuarios:3001
-      PRODUCTOS_SERVICE_URL: http://servicio-productos:3002
+      JWT_SECRET: ${JWT_SECRET}
+      CONSUL_URL: ${CONSUL_URL}
     depends_on:
       - mongo-pedidos
       - servicio-usuarios
       - servicio-productos
+      - consul
     networks:
       - pedidos-net
 

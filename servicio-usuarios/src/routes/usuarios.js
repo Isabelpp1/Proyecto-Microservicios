@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
+const { logEvent } = require('../observability');
 
 const router = express.Router();
 
@@ -21,6 +22,10 @@ router.post('/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const usuario = await Usuario.create({ nombre, email, passwordHash, direccion });
+    logEvent('servicio-usuarios', 'info', 'user_registered', {
+      correlationId: req.correlationId,
+      user_id: usuario._id.toString()
+    });
 
     return res.status(201).json({
       id: usuario._id,
@@ -56,6 +61,11 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '2h' }
     );
+
+    logEvent('servicio-usuarios', 'info', 'user_authenticated', {
+      correlationId: req.correlationId,
+      user_id: usuario._id.toString()
+    });
 
     return res.json({ token });
   } catch (err) {

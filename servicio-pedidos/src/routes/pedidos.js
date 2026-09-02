@@ -1,29 +1,38 @@
 const express = require('express');
 const Pedido = require('../models/Pedido');
 const { validarUsuario, obtenerProducto, descontarStock } = require('../services/clientesExternos');
+const { requireAuth } = require('../middleware/auth');
+const { logEvent } = require('../observability');
 
 const router = express.Router();
 
-// POST /pedidos - flujo de creacion de pedido
-// body: { usuarioId, items: [{ productoId, cantidad }] }
-router.post('/', async (req, res) => {
-  const { usuarioId, items } = req.body;
+// POST /pedidos - flujo de creacion de pedido protegido por JWT
+// body: { items: [{ productoId, cantidad }] }
+router.post('/', requireAuth, async (req, res) => {
+  const { items } = req.body;
+  const usuarioId = req.auth.userId;
 
-  if (!usuarioId || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'usuarioId e items[] son requeridos' });
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'items[] es requerido' });
   }
 
   try {
+    logEvent('servicio-pedidos', 'info', 'order_creation_started', {
+      correlationId: req.correlationId,
+      user_id: usuarioId
+    });
+
     // 1. Validar al cliente contra servicio-usuarios
-    let usuario;
     try {
-      usuario = await validarUsuario(usuarioId);
+      await validarUsuario(usuarioId, req.correlationId);
     } catch (err) {
       if (err.response && err.response.status === 404) {
         return res.status(404).json({ error: 'Usuario no existe' });
       }
-      console.error('Error al validar usuario:', err.message);
-      return res.status(502).json({ error: 'servicio-usuarios no disponible' });
+      logEvent('servicio-pedidos', 'error', 'dependency_unavailable', {
+        correlationId: req.correlationId, dependency: err.dependency, error: err.message
+      });
+      return res.status(503).json({ error: 'Dependencia temporalmente no disponible', service: err.dependency });
     }
 
     // 2. Verificar existencias en servicio-productos para cada item y armar detalle
@@ -33,13 +42,15 @@ router.post('/', async (req, res) => {
     for (const item of items) {
       let producto;
       try {
-        producto = await obtenerProducto(item.productoId);
+        producto = await obtenerProducto(item.productoId, req.correlationId);
       } catch (err) {
         if (err.response && err.response.status === 404) {
           return res.status(404).json({ error: `Producto ${item.productoId} no existe` });
         }
-        console.error('Error al consultar producto:', err.message);
-        return res.status(502).json({ error: 'servicio-productos no disponible' });
+        logEvent('servicio-pedidos', 'error', 'dependency_unavailable', {
+          correlationId: req.correlationId, dependency: err.dependency, error: err.message
+        });
+        return res.status(503).json({ error: 'Dependencia temporalmente no disponible', service: err.dependency });
       }
 
       if (producto.stock < item.cantidad) {
@@ -61,9 +72,14 @@ router.post('/', async (req, res) => {
     // 3. Descontar stock de cada producto (best-effort secuencial para este checkpoint)
     for (const item of itemsDetallados) {
       try {
-        await descontarStock(item.productoId, item.cantidad);
+        await descontarStock(item.productoId, item.cantidad, req.correlationId);
       } catch (err) {
-        console.error('Error al descontar stock:', err.message);
+        if (!err.response) {
+          logEvent('servicio-pedidos', 'error', 'dependency_unavailable', {
+            correlationId: req.correlationId, dependency: err.dependency, error: err.message
+          });
+          return res.status(503).json({ error: 'Dependencia temporalmente no disponible', service: err.dependency });
+        }
         return res.status(409).json({ error: `No se pudo reservar stock de ${item.nombreProducto}` });
       }
     }
@@ -74,6 +90,13 @@ router.post('/', async (req, res) => {
       items: itemsDetallados,
       total,
       estado: 'confirmado'
+    });
+
+    logEvent('servicio-pedidos', 'info', 'order_confirmed', {
+      correlationId: req.correlationId,
+      order_id: pedido._id.toString(),
+      user_id: usuarioId,
+      total: pedido.total
     });
 
     return res.status(201).json(pedido);
