@@ -11,9 +11,17 @@ const breakers = {
   'servicio-productos': new CircuitBreaker({ serviceName: 'servicio-productos' })
 };
 
+function buildInternalHeaders(correlationId) {
+  return {
+    'x-correlation-id': correlationId,
+    'x-internal-service-token': process.env.INTERNAL_SERVICE_TOKEN
+  };
+}
+
 function markRetryable(error, serviceName) {
   error.dependency = serviceName;
-  error.retryable = !(error.response && error.response.status < 500);
+  const status = error.response?.status;
+  error.retryable = !status || status >= 500 || status === 408 || status === 429;
   return error;
 }
 
@@ -55,36 +63,62 @@ async function callService(serviceName, correlationId, request) {
 
 async function validarUsuario(usuarioId, correlationId) {
   return callService('servicio-usuarios', correlationId, async (baseUrl) => {
-    const { data } = await axios.get(`${baseUrl}/usuarios/${usuarioId}`, {
-      timeout: TIMEOUT_MS,
-      headers: { 'x-correlation-id': correlationId }
-    });
-    return data;
+    const response = await axios.get(
+      baseUrl + '/usuarios/' + usuarioId,
+      { timeout: TIMEOUT_MS, headers: buildInternalHeaders(correlationId) }
+    );
+    return response.data;
   });
 }
 
 async function obtenerProducto(productoId, correlationId) {
   return callService('servicio-productos', correlationId, async (baseUrl) => {
-    const { data } = await axios.get(`${baseUrl}/productos/${productoId}`, {
-      timeout: TIMEOUT_MS,
-      headers: { 'x-correlation-id': correlationId }
-    });
-    return data;
+    const response = await axios.get(
+      baseUrl + '/productos/' + productoId,
+      { timeout: TIMEOUT_MS, headers: buildInternalHeaders(correlationId) }
+    );
+    return response.data;
   });
 }
 
 async function descontarStock(productoId, cantidad, correlationId) {
   return callService('servicio-productos', correlationId, async (baseUrl) => {
-    const { data } = await axios.patch(
-      `${baseUrl}/productos/${productoId}/stock`,
+    const response = await axios.patch(
+      baseUrl + '/productos/' + productoId + '/stock',
       { cantidad },
-      {
-        timeout: TIMEOUT_MS,
-        headers: { 'x-correlation-id': correlationId }
-      }
+      { timeout: TIMEOUT_MS, headers: buildInternalHeaders(correlationId) }
     );
-    return data;
+    return response.data;
   });
 }
 
-module.exports = { validarUsuario, obtenerProducto, descontarStock };
+async function reservarStock(items, reservationId, correlationId) {
+  return callService('servicio-productos', correlationId, async (baseUrl) => {
+    const response = await axios.post(
+      baseUrl + '/productos/stock/reserve',
+      { items, reservationId },
+      { timeout: TIMEOUT_MS, headers: buildInternalHeaders(correlationId) }
+    );
+    return response.data;
+  });
+}
+
+async function liberarStock(reservationId, correlationId) {
+  return callService('servicio-productos', correlationId, async (baseUrl) => {
+    const response = await axios.post(
+      baseUrl + '/productos/stock/release',
+      { reservationId },
+      { timeout: TIMEOUT_MS, headers: buildInternalHeaders(correlationId) }
+    );
+    return response.data;
+  });
+}
+
+module.exports = {
+  buildInternalHeaders,
+  validarUsuario,
+  obtenerProducto,
+  descontarStock,
+  reservarStock,
+  liberarStock
+};

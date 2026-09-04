@@ -3,21 +3,30 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 const { logEvent } = require('../observability');
+const { validateRegisterPayload, validateLoginPayload } = require('../validation');
+const { errorResponse, validationResponse } = require('../errors');
+const { createAccessToken } = require('../auth');
+const { publicUser } = require('../presentation');
 
 const router = express.Router();
 
 // POST /usuarios/register - registrar un usuario nuevo
 router.post('/register', async (req, res) => {
   try {
-    const { nombre, email, password, direccion } = req.body;
-
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ error: 'nombre, email y password son requeridos' });
+    const validation = validateRegisterPayload(req.body);
+    if (!validation.valid) {
+      logEvent('servicio-usuarios', 'warn', 'validation_rejected', {
+        correlationId: req.correlationId,
+        endpoint: 'register',
+        error_count: validation.errors.length
+      });
+      return validationResponse(res, req, validation.errors);
     }
+    const { nombre, email, password, direccion } = validation.value;
 
-    const existente = await Usuario.findOne({ email: email.toLowerCase() });
+    const existente = await Usuario.findOne({ email });
     if (existente) {
-      return res.status(409).json({ error: 'Ya existe un usuario con ese email' });
+      return errorResponse(res, 409, 'EMAIL_ALREADY_REGISTERED', 'Ya existe un usuario con ese email', req);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -27,40 +36,40 @@ router.post('/register', async (req, res) => {
       user_id: usuario._id.toString()
     });
 
-    return res.status(201).json({
-      id: usuario._id,
-      nombre: usuario.nombre,
-      email: usuario.email
-    });
+    return res.status(201).json(publicUser(usuario));
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Error interno al registrar usuario' });
+    if (err && err.code === 11000) {
+      return errorResponse(res, 409, 'EMAIL_ALREADY_REGISTERED', 'Ya existe un usuario con ese email', req);
+    }
+    logEvent('servicio-usuarios', 'error', 'request_failed', {
+      correlationId: req.correlationId,
+      endpoint: 'register',
+      error: err.message
+    });
+    return errorResponse(res, 500, 'INTERNAL_ERROR', 'Error interno al registrar usuario', req);
   }
 });
 
 // POST /usuarios/login - login, devuelve token JWT
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'email y password son requeridos' });
+    const validation = validateLoginPayload(req.body);
+    if (!validation.valid) {
+      return validationResponse(res, req, validation.errors);
     }
+    const { email, password } = validation.value;
 
-    const usuario = await Usuario.findOne({ email: email.toLowerCase() });
+    const usuario = await Usuario.findOne({ email });
     if (!usuario) {
-      return res.status(401).json({ error: 'Credenciales invalidas' });
+      return errorResponse(res, 401, 'INVALID_CREDENTIALS', 'Credenciales invalidas', req);
     }
 
     const passwordOk = await bcrypt.compare(password, usuario.passwordHash);
     if (!passwordOk) {
-      return res.status(401).json({ error: 'Credenciales invalidas' });
+      return errorResponse(res, 401, 'INVALID_CREDENTIALS', 'Credenciales invalidas', req);
     }
 
-    const token = jwt.sign(
-      { userId: usuario._id.toString(), email: usuario.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '2h' }
-    );
+    const token = createAccessToken(usuario, { jwtImpl: jwt });
 
     logEvent('servicio-usuarios', 'info', 'user_authenticated', {
       correlationId: req.correlationId,
@@ -69,8 +78,12 @@ router.post('/login', async (req, res) => {
 
     return res.json({ token });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Error interno al iniciar sesion' });
+    logEvent('servicio-usuarios', 'error', 'request_failed', {
+      correlationId: req.correlationId,
+      endpoint: 'login',
+      error: err.message
+    });
+    return errorResponse(res, 500, 'INTERNAL_ERROR', 'Error interno al iniciar sesion', req);
   }
 });
 
@@ -79,11 +92,19 @@ router.get('/:id', async (req, res) => {
   try {
     const usuario = await Usuario.findById(req.params.id).select('-passwordHash');
     if (!usuario) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+      return errorResponse(res, 404, 'USER_NOT_FOUND', 'Usuario no encontrado', req);
     }
-    return res.json(usuario);
+    return res.json(publicUser(usuario));
   } catch (err) {
-    return res.status(400).json({ error: 'ID de usuario invalido' });
+    if (err.name === 'CastError') {
+      return errorResponse(res, 400, 'INVALID_ID', 'ID de usuario invalido', req);
+    }
+    logEvent('servicio-usuarios', 'error', 'request_failed', {
+      correlationId: req.correlationId,
+      endpoint: 'get_user',
+      error: err.message
+    });
+    return errorResponse(res, 503, 'USERS_UNAVAILABLE', 'No se pudo consultar el usuario', req);
   }
 });
 

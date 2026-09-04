@@ -1,197 +1,220 @@
-# Sistema de pedidos para una tienda en línea
+# Sistema de gestión de pedidos para una tienda en línea
 
-Proyecto del curso de Arquitectura de Componentes y Microservicios. La aplicación está dividida
-en tres servicios: usuarios, productos y pedidos. Un API Gateway recibe las solicitudes y las
-envía al servicio correspondiente.
-
-El proyecto usa Node.js, Express, MongoDB y Docker Compose. La decisión del stack está documentada
-en [`docs/RFC-001.md`](docs/RFC-001.md).
-
-Equipo: Carlos Daniel Martinez, Douglas Pérez e Isabel Paiz.
+Entrega final del proyecto de Arquitectura de Componentes y Microservicios. El dominio real es el
+definido en [RFC-001](docs/RFC-001.md): Usuarios, Productos y Pedidos. El PDF de FitFlow se usó
+únicamente como referencia de nivel y alcance; no se incorporaron sus bounded contexts.
 
 ## Arquitectura
 
-```
-Cliente (curl / Postman)
-        │  HTTP
-        ▼
-  API Gateway (Express, puerto 3000)
-        │
-   ┌────┼─────────────┐
-   ▼    ▼              ▼
-Usuarios  Productos    Pedidos ── consulta y registra ──► Consul :8500
-:3001     :3002        :3003
-   │        │             │  (resuelve Usuarios y Productos mediante Consul)
-   ▼        ▼             ▼
-MongoDB   MongoDB       MongoDB
-usuarios  productos     pedidos
-```
+~~~text
+Cliente / Postman / curl
+            |
+            v
+    API Gateway :3000
+       /       |       \
+      v        v        v
+ Usuarios  Productos  Pedidos
+  :3001      :3002     :3003
+      |        |        |
+      v        v        v
+ mongo-     mongo-    mongo-
+usuarios  productos  pedidos
 
-- Cada microservicio tiene **su propia base de datos** (database-per-service): ningún servicio
-  consulta directamente la base de datos de otro.
-- **Servicio de Pedidos** es el orquestador: al crear un pedido, valida al cliente contra
-  **Servicio de Usuarios** y verifica/descuenta existencias contra **Servicio de Productos**,
-  ambos vía REST síncrono.
-- Todo el tráfico externo entra por el **API Gateway**, que enruta según el path
-  (`/api/usuarios`, `/api/productos`, `/api/pedidos`).
-- Consul corre únicamente en modo desarrollo local. Los tres microservicios se registran al
-  iniciar y Pedidos descubre instancias saludables de Usuarios y Productos antes de llamarlas.
+ Consul :8500 registra y verifica los tres servicios.
+ Pedidos descubre Usuarios y Productos mediante Consul.
+~~~
 
-## Estructura del repositorio
+- El Gateway es el único punto de entrada publicado al host.
+- Cada servicio posee su propia base de datos MongoDB; no hay consultas cruzadas entre bases.
+- Pedidos valida el usuario, consulta el catálogo, reserva inventario y confirma el pedido mediante
+  llamadas HTTP a servicios descubiertos dinámicamente.
+- La comunicación interna usa nombres lógicos de Docker (servicio-usuarios, servicio-productos,
+  servicio-pedidos), no direcciones IP fijas.
 
-```
-pedidos-tienda-online/
-├── api-gateway/          # Punto de entrada único (Express + http-proxy-middleware)
-├── servicio-usuarios/     # Registro, login (JWT) y perfil de cliente
-├── servicio-productos/    # Catálogo e inventario
-├── servicio-pedidos/      # Creación y consulta de pedidos (orquestador)
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
+## Funcionalidades de la entrega final
 
-## Cómo correrlo
+- Registro y login con bcrypt y JWT (sub, userId, email, expiración configurable).
+- Validación estricta de tipos, rangos, ObjectId, campos desconocidos y tamaño de JSON.
+- Envelope de errores consistente con error, code, correlationId y details opcional.
+- Headers de seguridad, CORS configurable y token interno para operaciones de inventario.
+- Reserva de stock agregada, actualización atómica, rollback ante fallo parcial y liberación
+  idempotente.
+- Idempotency-Key opcional en creación de pedidos: replay exacto devuelve 200 y el mismo pedido;
+  una huella diferente devuelve 409.
+- Consul con registro, discovery de instancias saludables y deregistro al apagar el servicio.
+- Timeout de 2 segundos, hasta 3 reintentos con backoff/jitter y circuit breaker por dependencia.
+- Logs JSON con correlation_id, eventos de negocio y propagación de x-correlation-id.
+- /healthz, /readyz, healthchecks de Compose, pruebas unitarias, smoke E2E y CI.
 
-Se necesita tener Docker Desktop instalado y abierto. No es necesario instalar Node.js para
-levantar la versión de Compose, porque cada servicio instala sus dependencias dentro de su
-contenedor.
+La matriz de brechas y las decisiones de adaptación están en
+[docs/MATRIZ_BRECHAS_CHECKPOINT_FINAL.md](docs/MATRIZ_BRECHAS_CHECKPOINT_FINAL.md).
 
-```bash
-git clone <repo>
-cd pedidos-tienda-online
-cp .env.example .env
-docker compose up --build
-```
+## Estructura
 
-En PowerShell, el segundo comando se puede escribir así:
+~~~text
+api-gateway/                         # Proxy HTTP y punto de entrada :3000
+servicio-usuarios/                   # Registro, login y perfil
+servicio-productos/                  # Catálogo, stock y reservas
+servicio-pedidos/                    # Orquestación, idempotencia y pedidos
+test/integration-smoke.js             # Smoke E2E contra el Gateway
+test/compose-config.test.js           # Contrato mínimo de Compose
+docs/ARCHITECTURE.md                 # Decisiones y flujos
+docs/API.md                           # Contratos de API
+docs/GUIA_CHECKPOINT_3.md            # Instalación, pruebas y fallos
+docs/GUIA_DEMO_FINAL.md              # Guion para el video
+docs/Checkpoint3.postman_collection.json
+.github/workflows/ci.yml             # Tests, sintaxis y Compose config
+docker-compose.yml
+.env.example
+~~~
 
-```powershell
+## Requisitos e instalación
+
+Se necesita Docker Desktop iniciado, Git y Node.js 20 o superior. Node solo es necesario para
+ejecutar las pruebas locales; Compose instala las dependencias dentro de las imágenes.
+
+PowerShell:
+
+~~~powershell
+git clone <URL_DEL_REPOSITORIO>
+Set-Location Proyecto-Microservicios
 Copy-Item .env.example .env
+~~~
+
+Antes de compartir el proyecto, cambia JWT_SECRET, INTERNAL_SERVICE_TOKEN y las contraseñas de
+Mongo en .env por valores largos y aleatorios. .env está ignorado por Git; nunca lo agregues ni
+pegues sus valores en Postman, README, tickets o logs.
+
+## Levantar el sistema
+
+Validar la configuración y construir todos los servicios:
+
+~~~powershell
+docker compose config
 docker compose up --build
-```
+~~~
 
-La primera vez puede tardar un poco mientras Docker descarga MongoDB y construye las imágenes.
-Para detener los contenedores se puede presionar `Ctrl+C`. Si se quieren dejar ejecutándose en
-segundo plano, usar `docker compose up --build -d`.
+Para ejecutarlo en segundo plano:
 
-Verificar que los servicios y el gateway están arriba:
+~~~powershell
+docker compose up --build -d
+docker compose ps
+~~~
 
-```bash
-curl http://localhost:3000/healthz                 # gateway
-curl http://localhost:3000/api/usuarios/healthz     # (o directo: docker exec, o exponer puertos)
-```
+Puertos publicados: Gateway 3000 y Consul 8500. MongoDB y los microservicios quedan dentro de
+la red de Compose. Detener sin eliminar datos:
 
-La interfaz de Consul está disponible en [http://localhost:8500](http://localhost:8500). Allí deben
-aparecer `servicio-usuarios`, `servicio-productos` y `servicio-pedidos` como saludables.
+~~~powershell
+docker compose down
+~~~
 
-> Nota: en este checkpoint solo el API Gateway publica su puerto (3000) al host, siguiendo el
-> patrón de "único punto de entrada". Para depurar un servicio individual en desarrollo se puede
-> exponer temporalmente su puerto en `docker-compose.yml`.
+docker compose down -v elimina las tres bases locales y debe usarse solo cuando se quiera reiniciar
+los datos de la demo.
 
-## Flujo de prueba end-to-end (Checkpoint 2)
+## Pruebas
 
-```bash
-# 1. Registrar un usuario
-curl -X POST http://localhost:3000/api/usuarios/register \
-  -H "Content-Type: application/json" \
-  -d '{"nombre":"Ana Lopez","email":"ana@example.com","password":"secreta123"}'
+Con las dependencias de Node instaladas en cada servicio, ejecutar todas las pruebas unitarias:
 
-# 2. Iniciar sesión
-curl -X POST http://localhost:3000/api/usuarios/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ana@example.com","password":"secreta123"}'
+~~~powershell
+node --test servicio-usuarios/test/*.test.js
+node --test servicio-productos/test/*.test.js
+node --test servicio-pedidos/test/*.test.js
+node --test api-gateway/test/*.test.js
+~~~
 
-# 3. Crear un producto en el catálogo
-curl -X POST http://localhost:3000/api/productos \
-  -H "Content-Type: application/json" \
-  -d '{"nombre":"Mouse inalambrico","precio":25.5,"stock":10}'
+Validar sintaxis de todo el código JavaScript y Compose:
 
-# 4. Crear un pedido protegido (usa el token de login y el ID de producto)
-#    El usuario se obtiene exclusivamente desde el JWT.
-curl -X POST http://localhost:3000/api/pedidos \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token_jwt>" \
-  -H "x-correlation-id: demo-pedido-001" \
-  -d '{"items":[{"productoId":"<id_producto>","cantidad":2}]}'
+~~~powershell
+Get-ChildItem -Recurse -File -Path servicio-usuarios/src,servicio-usuarios/test,servicio-productos/src,servicio-productos/test,servicio-pedidos/src,servicio-pedidos/test,api-gateway/src,api-gateway/test,test | ForEach-Object { node --check $_.FullName }
+docker compose config
+~~~
 
-# 5. Consultar el pedido creado
-curl http://localhost:3000/api/pedidos/<id_pedido>
-```
+Con Compose arriba, ejecutar el smoke de integración:
 
-En Windows se puede usar `curl.exe` en lugar de `curl` si PowerShell interpreta `curl` como un
-alias de `Invoke-WebRequest`. Los valores entre `< >` se deben reemplazar con los IDs que devuelve
-la respuesta anterior.
+~~~powershell
+node test/integration-smoke.js
+~~~
 
-Sin token, token expirado o token inválido, `POST /api/pedidos` responde `401`. El campo
-`usuarioId` ya no se acepta en el body. Al crear un pedido, `servicio-pedidos` llama a
-`servicio-usuarios` y a `servicio-productos` a través de instancias descubiertas en Consul.
+El smoke comprueba salud/readiness, Consul, registro, login correcto e incorrecto, JWT obligatorio,
+creación de producto, pedido válido, replay idempotente, stock insuficiente, payload inválido y que
+los rechazos no aumenten la cantidad de pedidos ni descuenten stock.
 
-## Estado del proyecto
+## Flujo rápido de API
 
-### Checkpoint 1 — Microservicios y Docker
-- [x] Tres microservicios independientes (Usuarios, Productos, Pedidos), cada uno con su propia
-      base de datos MongoDB.
-- [x] Cada servicio expone `/healthz` y `/readyz`.
-- [x] `servicio-pedidos` valida usuario y stock vía REST síncrono antes de confirmar un pedido.
-- [x] API Gateway como único punto de entrada externo.
-- [x] `docker-compose.yml` levanta todo el sistema (`docker compose up --build`).
-- [x] Sin passwords ni secretos en el código: todo vía variables de entorno (`.env`, ignorado
-      por git).
-- [x] Comunicación entre servicios por nombre lógico de contenedor (`http://servicio-usuarios:3001`),
-      nunca por IP fija.
+1. Registrar usuario en POST /api/usuarios/register.
+2. Iniciar sesión en POST /api/usuarios/login y guardar token.
+3. Crear producto en POST /api/productos.
+4. Crear pedido en POST /api/pedidos con Authorization: Bearer <token> e
+   Idempotency-Key: demo-001.
+5. Repetir exactamente la solicitud: debe devolver 200 con el mismo _id y sin descontar stock.
 
-### Checkpoint 2 — Seguridad, resiliencia y observabilidad
-- [x] `POST /api/pedidos` exige Bearer JWT y toma el usuario desde el token.
-- [x] Consul en modo desarrollo registra Usuarios, Productos y Pedidos; Pedidos descubre las
-      dependencias saludables por nombre de servicio.
-- [x] Llamadas con timeout de 2 segundos, hasta 3 reintentos (backoff 0.5 s, 1 s, 2 s + jitter)
-      y circuit breaker independiente por dependencia (3 fallos, 30 s abierto).
-- [x] Si una dependencia falla o su circuito está abierto, el pedido se rechaza con `503`; no se
-      crea el pedido ni se descuenta inventario.
-- [x] Logs JSON y propagación de `x-correlation-id` entre Gateway, Pedidos y dependencias.
+Ejemplo de pedido:
 
-## Observabilidad y prueba de resiliencia
+~~~json
+{
+  "items": [
+    { "productoId": "507f1f77bcf86cd799439011", "cantidad": 2 }
+  ]
+}
+~~~
 
-Cada request conserva el header `x-correlation-id` recibido o genera uno nuevo. Para seguir un
-pedido en todos los servicios:
+Contratos completos, estados y códigos están en [docs/API.md](docs/API.md). La colección final para
+Postman está en [docs/Checkpoint3.postman_collection.json](docs/Checkpoint3.postman_collection.json).
 
-```powershell
-docker compose logs --no-color | Select-String 'demo-pedido-001'
-```
+## Salud, Consul y resiliencia
 
-Para simular una dependencia caída, con un JWT y producto válidos, ejecutar tres veces el mismo
-`POST /api/pedidos` después de detener Productos:
+~~~powershell
+Invoke-RestMethod http://localhost:3000/healthz
+Invoke-RestMethod http://localhost:3000/api/usuarios/readyz
+Invoke-RestMethod http://localhost:3000/api/productos/readyz
+Invoke-RestMethod http://localhost:3000/api/pedidos/readyz
+Invoke-RestMethod 'http://localhost:8500/v1/health/service/servicio-pedidos?passing=true'
+docker compose logs --no-color servicio-pedidos | Select-String 'correlation_id|dependency_retry|circuit_open|order_confirmed'
+~~~
 
-```powershell
+Para demostrar una dependencia caída, primero crea un JWT, usuario y producto válidos; luego detén
+Productos y ejecuta el smoke degradado:
+
+~~~powershell
 docker compose stop servicio-productos
-# enviar el pedido tres veces: cada respuesta es 503 y registra reintentos
-# el cuarto intento se rechaza inmediatamente porque el circuito está abierto
+$env:EXPECT_PRODUCTOS_DOWN = 'true'
+$env:E2E_TOKEN = '<JWT_VALIDO>'
+$env:E2E_USER_ID = '<ID_USUARIO>'
+$env:E2E_PRODUCT_ID = '<ID_PRODUCTO>'
+node test/integration-smoke.js
+Remove-Item Env:EXPECT_PRODUCTOS_DOWN,Env:E2E_TOKEN,Env:E2E_USER_ID,Env:E2E_PRODUCT_ID
 docker compose start servicio-productos
-# esperar 30 segundos y enviar de nuevo el pedido: el circuito permite una prueba y se recupera
-```
+~~~
 
-La secuencia completa y solicitudes listas para importar están en
-[`docs/GUIA_CHECKPOINT_2.md`](docs/GUIA_CHECKPOINT_2.md) y
-[`docs/Checkpoint2.postman_collection.json`](docs/Checkpoint2.postman_collection.json).
-
-### Entrega final — Documentación y demo
-- README final con arquitectura, instrucciones de instalación/uso y sección de seguridad
-  (incluye rotación de credenciales).
-- Video demo (5–8 min) mostrando: `docker compose up`, registro/login, creación de pedido válido,
-  caso de stock insuficiente, caída simulada de un servicio dependiente y comportamiento del
-  sistema, y logs con `correlation_id`.
-- Revisión final de que ningún secreto quede en el repositorio.
+La solicitud debe responder 503, no crear un pedido y no cambiar el conteo existente. La guía
+operativa está en [docs/GUIA_CHECKPOINT_3.md](docs/GUIA_CHECKPOINT_3.md).
 
 ## Seguridad y rotación de secretos
 
-- Passwords de usuario hasheados con `bcrypt` antes de guardarse.
-- `JWT_SECRET` y credenciales de MongoDB solo viven en `.env` (no versionado).
-- Para rotar un secreto: genere un valor nuevo, actualice `JWT_SECRET` en `.env` y reinicie
-  `servicio-usuarios` y `servicio-pedidos` con `docker compose up -d --force-recreate`.
-  Los tokens emitidos con el secreto anterior quedarán inválidos, por lo que los usuarios deben
-  iniciar sesión de nuevo. Nunca suba `.env` ni comparta ese valor en la colección Postman.
+- Passwords se almacenan con bcrypt; nunca se devuelve passwordHash.
+- JWT_SECRET, INTERNAL_SERVICE_TOKEN y credenciales de Mongo solo llegan por .env.
+- Para rotar secretos, genera valores nuevos fuera del repositorio, actualiza .env y recrea los
+  servicios:
 
-## Decisiones de arquitectura
+~~~powershell
+docker compose up -d --force-recreate servicio-usuarios servicio-pedidos servicio-productos
+~~~
 
-Ver `docs/RFC-001.md` para el detalle completo de por qué se eligió Node.js/Express + MongoDB
-sobre las alternativas consideradas (Python/FastAPI y Java/Spring Boot).
+Los JWT firmados con el secreto anterior dejan de ser válidos. El token interno anterior tampoco
+permite reservas. Después de rotar, inicia sesión de nuevo y verifica /readyz.
+
+## CI y documentación
+
+GitHub Actions instala las dependencias, ejecuta tests y validación de sintaxis por servicio, y
+ejecuta docker compose config con .env.example. La documentación de arquitectura, contratos,
+matriz y demo se encuentra en docs/.
+
+## Alcance deliberadamente fuera
+
+No se agregaron roles administrativos, pagos, notificaciones, RabbitMQ, MCP, agentes A2A ni despliegue
+cloud: RFC-001 no los define y agregarlos habría mezclado bounded contexts del PDF con el sistema de
+pedidos. Se deja documentada la extensión posible sin inventar funcionalidades de negocio.
+
+## Equipo
+
+Carlos Daniel Martinez, Douglas Pérez e Isabel Paiz.

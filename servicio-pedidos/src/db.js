@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { logEvent } = require('./observability');
 
 let isConnected = false;
 
@@ -7,10 +8,10 @@ async function connectDB() {
   try {
     await mongoose.connect(uri);
     isConnected = true;
-    console.log('[servicio-pedidos] Conectado a MongoDB');
+    logEvent('servicio-pedidos', 'info', 'database_connected');
   } catch (err) {
     isConnected = false;
-    console.error('[servicio-pedidos] Error al conectar a MongoDB:', err.message);
+    logEvent('servicio-pedidos', 'error', 'database_connection_failed', { error: err.message });
   }
 
   mongoose.connection.on('disconnected', () => { isConnected = false; });
