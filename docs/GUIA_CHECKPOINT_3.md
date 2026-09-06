@@ -33,6 +33,16 @@ docker compose up --build -d
 docker compose ps
 ```
 
+## Interfaz visual
+
+Con los contenedores saludables, abre http://localhost:3000. La pantalla permite registrar e iniciar
+sesión, consultar el catálogo, agregar productos al carrito, crear un pedido y ver el total. También
+muestra health/readiness, errores de JWT o stock, estado de dependencias y el correlationId de la
+última operación.
+
+La UI es solamente un cliente del Gateway. Postman continúa siendo útil para demostrar los contratos
+HTTP exactos y Consul se consulta en http://localhost:8500.
+
 ## Pruebas unitarias
 
 ```
@@ -58,7 +68,7 @@ powershell
 node test/integration-smoke.js
 ```
 
-El smoke registra un usuario único, comprueba login incorrecto y correcto, JWT requerido, crea producto, crea pedido, repite la clave de idempotencia, confirma stock, prueba stock insuficiente, payload inválido y consulta Consul.
+El smoke registra un usuario único, comprueba login incorrecto y correcto, JWT requerido, crea producto, crea pedido, repite la clave de idempotencia, confirma stock, prueba stock insuficiente, payload inválido y consulta Consul. La misma secuencia puede mostrarse desde la interfaz visual.
 
 ## Caída de Productos
 

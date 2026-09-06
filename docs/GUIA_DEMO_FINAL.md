@@ -6,13 +6,13 @@ Duración sugerida: 5 a 8 minutos. La demo muestra el dominio real de pedidos y 
 
 1. (0:00-0:45) Mostrar el repositorio, la rama feature/checkpoint-final y ejecutar docker compose up --build.
 2. (0:45-1:15) Abrir Consul en http://localhost:8500 y mostrar los tres servicios passing.
-3. (1:15-2:00) Ejecutar healthz/readyz desde Postman o curl y registrar un usuario.
-4. (2:00-2:30) Hacer login y mostrar que se obtiene un JWT sin exponer secretos.
-5. (2:30-3:15) Crear un producto con stock 3 y crear un pedido válido de cantidad 2 usando Authorization y Idempotency-Key.
-6. (3:15-3:45) Repetir exactamente el pedido: mostrar 200, mismo pedido y stock todavía en 1.
-7. (3:45-4:30) Enviar cantidad 99: mostrar 409 STOCK_INSUFFICIENT, verificar que el pedido no aumentó y que stock sigue en 1.
-8. (4:30-5:00) Enviar el pedido sin JWT y con payload inválido: mostrar 401 y 400.
-9. (5:00-6:15) Ejecutar docker compose stop servicio-productos, enviar un pedido con el smoke degradado o Postman, mostrar 503 y que no se crea pedido.
+3. (1:15-2:00) Abrir http://localhost:3000, mostrar health/readiness y registrar un usuario desde la interfaz.
+4. (2:00-2:30) Hacer login y mostrar el indicador JWT activo sin exponer el token.
+5. (2:30-3:15) Crear un producto con stock 3, agregarlo al carrito y crear un pedido válido desde la interfaz.
+6. (3:15-3:45) Repetir la última solicitud: mostrar replay 200, mismo pedido y stock todavía en 1.
+7. (3:45-4:30) Agregar cantidad 99: mostrar visualmente 409 STOCK_INSUFFICIENT, sin nuevo pedido ni cambio de stock.
+8. (4:30-5:00) Cerrar sesión y crear un pedido para mostrar 401; también probar un payload inválido desde Postman si se necesita.
+9. (5:00-6:15) Ejecutar docker compose stop servicio-productos, pulsar Actualizar estado y crear un pedido desde la interfaz; mostrar estado degradado, 503 y que no se crea pedido.
 10. (6:15-7:00) Mostrar logs JSON filtrados por correlation_id con retries/circuit_open y volver a ejecutar docker compose start servicio-productos.
 11. (7:00-8:00) Mostrar README, arquitectura, contratos API, matriz de brechas, CI y la colección Postman final.
 
@@ -30,3 +30,6 @@ Duración sugerida: 5 a 8 minutos. La demo muestra el dominio real de pedidos y 
 ## Preparación
 
 Importa docs/Checkpoint3.postman_collection.json. Ejecuta primero la carpeta Salud y luego Flujo principal. La colección genera un email único y guarda token, producto y pedido automáticamente.
+
+La interfaz visual y Postman son dos vistas del mismo Gateway; no se debe presentar la UI como un
+servicio de negocio adicional.

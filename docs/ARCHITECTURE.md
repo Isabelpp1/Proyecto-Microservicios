@@ -7,10 +7,11 @@ El dominio real es un sistema de gestión de pedidos para una tienda en línea. 
 ## Vista de componentes
 
 ```
-Cliente / Postman / curl
+Navegador / Postman / curl
             |
             v
     API Gateway :3000
+    (UI estática + proxy)
             |
     +-------+---------+
     |       |         |
@@ -28,11 +29,14 @@ Cliente / Postman / curl
 
 El cliente conoce únicamente el Gateway. Los servicios se comunican por los nombres lógicos de Docker y Pedidos usa descubrimiento dinámico para sus dependencias.
 
+La UI no es un bounded context adicional: es un cliente HTML/CSS/JavaScript estático servido por el
+Gateway. No contiene reglas de negocio ni accede directamente a Usuarios, Productos o Pedidos.
+
 ## Responsabilidades y propiedad de datos
 
 | Componente | Responsabilidad | Base de datos propia |
 |---|---|---|
-| API Gateway | Entrada HTTP, correlation ID, headers de seguridad y proxy | No |
+| API Gateway | UI estática, entrada HTTP, correlation ID, headers de seguridad y proxy | No |
 | Usuarios | Registro, hash bcrypt, login JWT y perfil público | mongo-usuarios / usuarios_db |
 | Productos | Catálogo, precios, stock y reservas de inventario | mongo-productos / productos_db |
 | Pedidos | Orquestación, cálculo de total, idempotencia y consulta de pedidos | mongo-pedidos / pedidos_db |

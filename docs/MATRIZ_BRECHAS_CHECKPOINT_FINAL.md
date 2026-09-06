@@ -8,7 +8,7 @@ El PDF describe FitFlow y cinco tareas académicas. Sus nombres de dominio son e
 |---|---|---|---|---|
 | Servicios independientes | Usuarios, Productos y Pedidos | Task 1: servicios separados | Se conservan y se validan con Compose | Implementado |
 | Database per Service | Tres Mongo separados | Task 1: BD propia por servicio | Se conserva; ningún acceso cruzado | Implementado |
-| Gateway | Proxy en puerto 3000 | Entrega con entrada operativa | Correlation ID, body limit, headers y errores upstream | Implementado |
+| Gateway | Proxy en puerto 3000 | Entrega con entrada operativa | UI estática para demo, correlation ID, body limit, headers y errores upstream | Implementado |
 | Consul | Registro y discovery para Pedidos | Task 2A | Health checks, discovery y deregistro limpio | Implementado |
 | JWT | Protege POST de pedidos | Task 4A | Claims sub/userId/email y configuración validada | Implementado |
 | Secretos | .env ignorado | Task 4B | Token interno, ejemplos no sensibles y rotación documentada | Implementado |

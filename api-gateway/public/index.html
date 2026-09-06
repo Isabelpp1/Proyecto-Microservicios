@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cliente visual del sistema de gestión de pedidos">
+  <title>Pedidos | Demo de microservicios</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Inicio">
+        <span class="brand-mark">PO</span>
+        <span>
+          <strong>Pedidos Online</strong>
+          <small>Demo de microservicios</small>
+        </span>
+      </a>
+      <div class="session-area">
+        <span id="auth-badge" class="status-pill muted">Sin sesión</span>
+        <button id="logout" class="button button-ghost" type="button" hidden>Cerrar sesión</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Checkpoint 3 · Entrega final</p>
+          <h1>Gestiona pedidos desde un solo lugar.</h1>
+          <p class="hero-copy">
+            Cliente web sencillo para probar Usuarios, Productos y Pedidos a través del API Gateway.
+          </p>
+        </div>
+        <div class="hero-note">
+          <span class="live-dot"></span>
+          <span>Gateway activo en <strong>localhost:3000</strong></span>
+        </div>
+      </section>
+
+      <section class="panel health-panel" aria-labelledby="health-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Observabilidad</p>
+            <h2 id="health-title">Estado del sistema</h2>
+          </div>
+          <button id="refresh-health" class="button button-secondary" type="button">Actualizar estado</button>
+        </div>
+        <div id="health-grid" class="health-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="workspace">
+        <div class="panel auth-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Acceso</p>
+              <h2>Usuario</h2>
+            </div>
+            <span class="panel-index">01</span>
+          </div>
+
+          <div class="form-block">
+            <h3>Crear cuenta</h3>
+            <form id="register-form">
+              <label for="register-name">Nombre</label>
+              <input id="register-name" name="nombre" type="text" placeholder="Ana López" minlength="2" maxlength="100" required>
+              <label for="register-email">Correo</label>
+              <input id="register-email" name="email" type="email" placeholder="ana@example.com" required>
+              <label for="register-password">Contraseña</label>
+              <input id="register-password" name="password" type="password" placeholder="Mínimo 8 caracteres" minlength="8" maxlength="72" required>
+              <button class="button button-primary button-full" type="submit">Registrar usuario</button>
+            </form>
+          </div>
+
+          <div class="divider"><span>o inicia sesión</span></div>
+
+          <div class="form-block">
+            <h3>Iniciar sesión</h3>
+            <form id="login-form">
+              <label for="login-email">Correo</label>
+              <input id="login-email" name="email" type="email" placeholder="ana@example.com" required>
+              <label for="login-password">Contraseña</label>
+              <input id="login-password" name="password" type="password" placeholder="Tu contraseña" required>
+              <button class="button button-dark button-full" type="submit">Obtener JWT</button>
+            </form>
+          </div>
+          <p id="user-status" class="helper-text">Puedes crear una cuenta de demostración o probar un pedido sin JWT para ver el rechazo.</p>
+        </div>
+
+        <div class="panel catalog-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Catálogo</p>
+              <h2>Productos disponibles</h2>
+            </div>
+            <button id="refresh-products" class="icon-button" type="button" aria-label="Actualizar productos" title="Actualizar productos">↻</button>
+          </div>
+          <div id="products-grid" class="products-grid" aria-live="polite"></div>
+        </div>
+
+        <aside class="panel cart-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Compra</p>
+              <h2>Tu carrito</h2>
+            </div>
+            <span id="cart-count" class="count-badge">0</span>
+          </div>
+          <div id="cart-list" class="cart-list" aria-live="polite"></div>
+          <div class="cart-summary">
+            <span>Total estimado</span>
+            <strong id="cart-total">0.00</strong>
+          </div>
+          <button id="create-order" class="button button-primary button-full" type="button">Crear pedido</button>
+          <button id="repeat-order" class="button button-secondary button-full" type="button" hidden>Repetir última solicitud</button>
+          <button id="clear-cart" class="button button-link button-full" type="button">Vaciar carrito</button>
+          <p class="helper-text">Usa una cantidad mayor al stock para visualizar el error de inventario.</p>
+        </aside>
+      </section>
+
+      <section class="panel activity-panel" aria-labelledby="activity-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Trazabilidad</p>
+            <h2 id="activity-title">Última operación</h2>
+          </div>
+          <span class="panel-index">04</span>
+        </div>
+        <div id="operation-message" class="message info" role="status">
+          <span class="message-icon">i</span>
+          <div>
+            <strong id="operation-title">Listo para probar</strong>
+            <p id="operation-text">Las respuestas del Gateway aparecerán aquí.</p>
+          </div>
+        </div>
+        <div class="correlation-row">
+          <span>correlationId</span>
+          <code id="correlation-id">—</code>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Node.js · Express · MongoDB · Consul</span>
+      <a href="http://localhost:8500" target="_blank" rel="noreferrer">Abrir Consul ↗</a>
+    </footer>
+  </div>
+</body>
+</html>

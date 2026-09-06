@@ -41,4 +41,5 @@ test('Gateway agrega headers de seguridad', () => {
 
   assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(res.headers['X-Frame-Options'], 'DENY');
+  assert.match(res.headers['Content-Security-Policy'], /default-src 'self'/);
 });

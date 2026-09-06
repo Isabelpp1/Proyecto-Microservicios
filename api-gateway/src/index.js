@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
 const { correlationMiddleware } = require('./observability');
 const { errorResponse, errorHandler } = require('./errors');
@@ -14,6 +15,7 @@ app.use(cors({ origin: corsOrigin }));
 app.use(securityHeaders);
 app.use(correlationMiddleware('api-gateway'));
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '100kb' }));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 function proxyOptions(target, pathRewrite) {
   return {

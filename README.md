@@ -7,7 +7,7 @@ definido en [RFC-001](docs/RFC-001.md): Usuarios, Productos y Pedidos. El PDF de
 ## Arquitectura
 
 ~~~text
-Cliente / Postman / curl
+Navegador / Postman / curl
             |
             v
     API Gateway :3000
@@ -25,6 +25,7 @@ usuarios  productos  pedidos
 ~~~
 
 - El Gateway es el único punto de entrada publicado al host.
+- La interfaz visual está servida por el Gateway en http://localhost:3000 y consume las mismas APIs públicas.
 - Cada servicio posee su propia base de datos MongoDB; no hay consultas cruzadas entre bases.
 - Pedidos valida el usuario, consulta el catálogo, reserva inventario y confirma el pedido mediante
   llamadas HTTP a servicios descubiertos dinámicamente.
@@ -53,6 +54,7 @@ La matriz de brechas y las decisiones de adaptación están en
 
 ~~~text
 api-gateway/                         # Proxy HTTP y punto de entrada :3000
+api-gateway/public/                  # Cliente visual HTML/CSS/JavaScript
 servicio-usuarios/                   # Registro, login y perfil
 servicio-productos/                  # Catálogo, stock y reservas
 servicio-pedidos/                    # Orquestación, idempotencia y pedidos
@@ -102,7 +104,10 @@ docker compose ps
 ~~~
 
 Puertos publicados: Gateway 3000 y Consul 8500. MongoDB y los microservicios quedan dentro de
-la red de Compose. Detener sin eliminar datos:
+la red de Compose. Abre http://localhost:3000 en el navegador para usar la interfaz visual.
+Postman y curl siguen disponibles para probar los contratos directamente.
+
+Detener sin eliminar datos:
 
 ~~~powershell
 docker compose down
@@ -138,6 +143,21 @@ node test/integration-smoke.js
 El smoke comprueba salud/readiness, Consul, registro, login correcto e incorrecto, JWT obligatorio,
 creación de producto, pedido válido, replay idempotente, stock insuficiente, payload inválido y que
 los rechazos no aumenten la cantidad de pedidos ni descuenten stock.
+
+## Interfaz visual
+
+La pantalla permite registrar/iniciar sesión, consultar el catálogo, agregar productos al carrito,
+crear pedidos y visualizar el total. También muestra el estado del Gateway y de cada readiness check,
+los errores de JWT, stock o dependencias y el correlationId de la última respuesta.
+
+Para demostrarla:
+
+1. Levanta Compose y entra a http://localhost:3000.
+2. Registra un usuario y pulsa Obtener JWT.
+3. Agrega un producto al carrito y crea el pedido.
+4. Repite la última solicitud para mostrar idempotencia.
+5. Usa una cantidad mayor al stock o cierra sesión para visualizar errores.
+6. Detén Productos con Compose y pulsa Actualizar estado o Crear pedido para mostrar la degradación.
 
 ## Flujo rápido de API
 
