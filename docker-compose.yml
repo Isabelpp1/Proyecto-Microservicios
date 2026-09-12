@@ -60,9 +60,16 @@ services:
       MONGO_URI: mongodb://${MONGO_USUARIOS_USER}:${MONGO_USUARIOS_PASS}@mongo-usuarios:27017/usuarios_db?authSource=admin
       JWT_SECRET: ${JWT_SECRET}
       CONSUL_URL: ${CONSUL_URL}
+      JSON_BODY_LIMIT: ${JSON_BODY_LIMIT}
     depends_on:
       - mongo-usuarios
       - consul
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
       - pedidos-net
 
@@ -74,9 +81,17 @@ services:
       PORT: 3002
       MONGO_URI: mongodb://${MONGO_PRODUCTOS_USER}:${MONGO_PRODUCTOS_PASS}@mongo-productos:27017/productos_db?authSource=admin
       CONSUL_URL: ${CONSUL_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      JSON_BODY_LIMIT: ${JSON_BODY_LIMIT}
     depends_on:
       - mongo-productos
       - consul
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
       - pedidos-net
 
@@ -89,11 +104,19 @@ services:
       MONGO_URI: mongodb://${MONGO_PEDIDOS_USER}:${MONGO_PEDIDOS_PASS}@mongo-pedidos:27017/pedidos_db?authSource=admin
       JWT_SECRET: ${JWT_SECRET}
       CONSUL_URL: ${CONSUL_URL}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      JSON_BODY_LIMIT: ${JSON_BODY_LIMIT}
     depends_on:
       - mongo-pedidos
       - servicio-usuarios
       - servicio-productos
       - consul
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
       - pedidos-net
 
@@ -109,10 +132,21 @@ services:
       USUARIOS_SERVICE_URL: http://servicio-usuarios:3001
       PRODUCTOS_SERVICE_URL: http://servicio-productos:3002
       PEDIDOS_SERVICE_URL: http://servicio-pedidos:3003
+      JSON_BODY_LIMIT: ${JSON_BODY_LIMIT}
+      CORS_ORIGIN: ${CORS_ORIGIN}
     depends_on:
-      - servicio-usuarios
-      - servicio-productos
-      - servicio-pedidos
+      servicio-usuarios:
+        condition: service_healthy
+      servicio-productos:
+        condition: service_healthy
+      servicio-pedidos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
       - pedidos-net
 

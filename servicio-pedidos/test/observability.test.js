@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { correlationMiddleware } = require('../src/observability');
+const { correlationMiddleware, normalizeCorrelationId } = require('../src/observability');
 
 test('correlationMiddleware reutiliza el x-correlation-id entrante', () => {
   const req = { headers: { 'x-correlation-id': 'demo-123' }, method: 'GET', originalUrl: '/pedidos' };
@@ -25,4 +25,10 @@ test('correlationMiddleware genera y devuelve un ID cuando no viene en el reques
 
   assert.match(req.correlationId, /^[0-9a-f-]{36}$/);
   assert.equal(headers['x-correlation-id'], req.correlationId);
+});
+
+test('normalizeCorrelationId reemplaza valores con salto de línea para evitar log injection', () => {
+  const correlationId = normalizeCorrelationId('malicioso\nsegundo-evento');
+
+  assert.match(correlationId, /^[0-9a-f-]{36}$/);
 });

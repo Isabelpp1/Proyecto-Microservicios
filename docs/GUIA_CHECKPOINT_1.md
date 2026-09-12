@@ -22,9 +22,9 @@ Si algún comando no existe, falta instalarlo o agregarlo al `PATH`. Docker Desk
 
 ```powershell
 git clone <URL_DEL_REPOSITORIO>
-cd pedidos-tienda-online
+cd Proyecto-Microservicios
 Copy-Item .env.example .env
-Get-Content .env
+Get-Content .env.example
 git status --short
 git check-ignore .env
 ```

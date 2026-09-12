@@ -1,7 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { registerService, resolveService } = require('../src/services/consul');
+const {
+  registerService,
+  registerServiceWithRetry,
+  resolveService,
+  deregisterService
+} = require('../src/services/consul');
 
 test('registerService registra nombre, direccion, puerto y health check', async () => {
   let request;
@@ -64,4 +69,38 @@ test('resolveService falla cuando Consul no encuentra instancias saludables', as
     }),
     /sin instancias saludables/
   );
+});
+
+test('deregisterService elimina el servicio usando su ID', async () => {
+  let request;
+
+  await deregisterService('servicio-pedidos', {
+    consulUrl: 'http://consul:8500',
+    fetchImpl: async (url, options) => {
+      request = { url, options };
+      return { ok: true };
+    }
+  });
+
+  assert.equal(
+    request.url,
+    'http://consul:8500/v1/agent/service/deregister/servicio-pedidos'
+  );
+  assert.equal(request.options.method, 'PUT');
+});
+
+test('registerServiceWithRetry devuelve un handle para detener sus reintentos', () => {
+  const handle = registerServiceWithRetry(
+    {
+      id: 'servicio-pedidos',
+      name: 'servicio-pedidos',
+      address: 'servicio-pedidos',
+      port: 3003,
+      healthUrl: 'http://servicio-pedidos:3003/healthz'
+    },
+    { consulUrl: 'http://consul:8500', fetchImpl: async () => ({ ok: true }) }
+  );
+
+  assert.equal(typeof handle.stop, 'function');
+  handle.stop();
 });

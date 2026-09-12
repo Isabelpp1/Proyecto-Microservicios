@@ -17,11 +17,18 @@ const pedidoSchema = new mongoose.Schema(
     total: { type: Number, required: true },
     estado: {
       type: String,
-      enum: ['creado', 'confirmado', 'cancelado'],
+      enum: ['creado', 'procesando', 'confirmado', 'cancelado'],
       default: 'creado'
-    }
+    },
+    idempotencyKey: { type: String, default: null },
+    requestFingerprint: { type: String, default: null }
   },
   { timestamps: true }
+);
+
+pedidoSchema.index(
+  { usuarioId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
 );
 
 module.exports = mongoose.model('Pedido', pedidoSchema);

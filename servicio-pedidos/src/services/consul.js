@@ -37,18 +37,27 @@ function registerServiceWithRetry(service, options = {}) {
   const delayMs = options.delayMs || 2000;
   const onRegistered = options.onRegistered || (() => {});
   const onError = options.onError || (() => {});
+  let timer = null;
+  let stopped = false;
 
   async function attemptRegistration() {
+    if (stopped) return;
     try {
       await registerService(service, options);
       onRegistered();
     } catch (error) {
       onError(error);
-      setTimeout(attemptRegistration, delayMs);
+      if (!stopped) timer = setTimeout(attemptRegistration, delayMs);
     }
   }
 
   attemptRegistration();
+  return {
+    stop() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    }
+  };
 }
 
 async function deregisterService(serviceId, options = {}) {

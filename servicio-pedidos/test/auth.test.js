@@ -48,3 +48,19 @@ test('requireAuth expone el usuario validado en la solicitud', () => {
   assert.equal(result.nextCalled, true);
   assert.equal(result.req.auth.userId, 'usuario-123');
 });
+
+test('requireAuth acepta el claim estándar sub como fallback de userId', () => {
+  const token = jwt.sign({ sub: 'usuario-456', email: 'ana@example.com' }, process.env.JWT_SECRET);
+  const result = runMiddleware({ authorization: 'Bearer ' + token });
+
+  assert.equal(result.nextCalled, true);
+  assert.equal(result.req.auth.userId, 'usuario-456');
+});
+
+test('requireAuth rechaza un Bearer vacío', () => {
+  const result = runMiddleware({ authorization: 'Bearer ' });
+
+  assert.equal(result.statusCode, 401);
+  assert.equal(result.body.error, 'Token invalido o expirado');
+  assert.equal(result.nextCalled, false);
+});
