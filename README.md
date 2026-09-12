@@ -62,8 +62,13 @@ test/integration-smoke.js             # Smoke E2E contra el Gateway
 test/compose-config.test.js           # Contrato mínimo de Compose
 docs/ARCHITECTURE.md                 # Decisiones y flujos
 docs/API.md                           # Contratos de API
+docs/README.md                        # Comandos y mapa de documentación
+docs/CHECKPOINT_1.md                  # Alcance y resultado de CP1
+docs/CHECKPOINT_2.md                  # Cambios de CP1 a CP2
+docs/CHECKPOINT_FINAL.md              # Cambios de CP2 a entrega final
 docs/GUIA_CHECKPOINT_3.md            # Instalación, pruebas y fallos
 docs/GUIA_DEMO_FINAL.md              # Guion para el video
+docs/MATRIZ_CUMPLIMIENTO_PDF.md       # Revisión detallada del PDF
 docs/Checkpoint3.postman_collection.json
 .github/workflows/ci.yml             # Tests, sintaxis y Compose config
 docker-compose.yml

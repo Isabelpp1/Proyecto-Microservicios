@@ -4,6 +4,8 @@
 
 El PDF describe FitFlow y cinco tareas académicas. Sus nombres de dominio son ejemplos. RFC-001 define nuestro dominio como Usuarios, Productos y Pedidos, Node.js/Express, MongoDB, Gateway y Compose. La columna final aplica el nivel de madurez transferible sin mezclar bounded contexts.
 
+Para la revisión requisito por requisito del PDF, consultar [MATRIZ_CUMPLIMIENTO_PDF.md](MATRIZ_CUMPLIMIENTO_PDF.md). Esta matriz resume las brechas funcionales entre checkpoints.
+
 | Área | Ya existía en CP1/CP2 | Referencia del PDF | Incorporado en CP3 final | Estado |
 |---|---|---|---|---|
 | Servicios independientes | Usuarios, Productos y Pedidos | Task 1: servicios separados | Se conservan y se validan con Compose | Implementado |

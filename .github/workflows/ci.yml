@@ -9,6 +9,7 @@ jobs:
   node-tests:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service:
           - servicio-usuarios
@@ -27,7 +28,11 @@ jobs:
       - run: npm test
       - name: Syntax check
         shell: bash
-        run: find src test public -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+        run: |
+          find src test -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          if [ -d public ]; then
+            find public -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          fi
 
   compose-config:
     runs-on: ubuntu-latest
